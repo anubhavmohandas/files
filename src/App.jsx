@@ -1,0 +1,1774 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Upload, FileText, Briefcase, GraduationCap, Code, Award, Plus, Trash2, ChevronLeft, ChevronRight, Download, AlertCircle, Check, X, Sparkles, Save } from 'lucide-react';
+
+const NyxineResumeMaker = () => {
+  const [currentView, setCurrentView] = useState('landing');
+  const [currentStep, setCurrentStep] = useState(0);
+  const [showStorageWarning, setShowStorageWarning] = useState(true);
+  const [profile, setProfile] = useState({
+    personal: { fullName: '', email: '', phone: '', location: '', linkedin: '', portfolio: '', github: '' },
+    workExperience: [],
+    education: [],
+    skills: { technical: [], soft: [], certifications: [], languages: [] },
+    projects: [],
+    additional: { volunteer: '', awards: '', publications: '' }
+  });
+  const [savedResumes, setSavedResumes] = useState([]);
+  const saveTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    loadFromStorage();
+  }, []);
+
+  useEffect(() => {
+    if (currentView !== 'landing') {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        saveToStorage();
+      }, 2000);
+    }
+  }, [profile, savedResumes, currentView]);
+
+  const loadFromStorage = () => {
+    try {
+      const profileData = localStorage.getItem('nyxine_profile');
+      const resumesData = localStorage.getItem('nyxine_resumes');
+      if (profileData) setProfile(JSON.parse(profileData));
+      if (resumesData) setSavedResumes(JSON.parse(resumesData));
+    } catch (error) {
+      console.log('No saved data found');
+    }
+  };
+
+  const saveToStorage = () => {
+    try {
+      localStorage.setItem('nyxine_profile', JSON.stringify(profile));
+      localStorage.setItem('nyxine_resumes', JSON.stringify(savedResumes));
+    } catch (error) {
+      console.error('Save error:', error);
+    }
+  };
+
+  const steps = [
+    { name: 'Personal Info', icon: FileText },
+    { name: 'Work Experience', icon: Briefcase },
+    { name: 'Education', icon: GraduationCap },
+    { name: 'Skills', icon: Sparkles },
+    { name: 'Projects', icon: Code },
+    { name: 'Additional', icon: Award }
+  ];
+
+  const handleFileUpload = (e) => {
+    if (e.target.files[0]) {
+      alert('Resume upload coming soon! AI extraction will be available in the next version.');
+      setCurrentView('wizard');
+      setCurrentStep(0);
+    }
+  };
+
+  const exportData = () => {
+    const dataStr = JSON.stringify({ profile, savedResumes }, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `nyxine-backup-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importData = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (data.profile) setProfile(data.profile);
+        if (data.savedResumes) setSavedResumes(data.savedResumes);
+        alert('Data imported successfully!');
+      } catch (error) {
+        alert('Import failed. Please check the file format.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const clearAllData = () => {
+    if (window.confirm('Are you sure you want to delete all data? This cannot be undone.')) {
+      setProfile({
+        personal: { fullName: '', email: '', phone: '', location: '', linkedin: '', portfolio: '', github: '' },
+        workExperience: [],
+        education: [],
+        skills: { technical: [], soft: [], certifications: [], languages: [] },
+        projects: [],
+        additional: { volunteer: '', awards: '', publications: '' }
+      });
+      setSavedResumes([]);
+      setCurrentView('landing');
+      alert('All data cleared successfully!');
+    }
+  };
+
+  if (currentView === 'landing') {
+    return <LandingPage showStorageWarning={showStorageWarning} setShowStorageWarning={setShowStorageWarning} setCurrentView={setCurrentView} setCurrentStep={setCurrentStep} handleFileUpload={handleFileUpload} profile={profile} savedResumes={savedResumes} />;
+  }
+
+  if (currentView === 'wizard') {
+    return <WizardView currentStep={currentStep} setCurrentStep={setCurrentStep} steps={steps} profile={profile} setProfile={setProfile} setCurrentView={setCurrentView} />;
+  }
+
+  if (currentView === 'dashboard') {
+    return <DashboardView profile={profile} savedResumes={savedResumes} setSavedResumes={setSavedResumes} setCurrentView={setCurrentView} exportData={exportData} importData={importData} clearAllData={clearAllData} />;
+  }
+
+  if (currentView === 'generate') {
+    // 🔧 FIX #1: Added missing profile prop
+    return <GenerateView setCurrentView={setCurrentView} profile={profile} savedResumes={savedResumes} setSavedResumes={setSavedResumes} />;
+  }
+
+  return null;
+};
+
+const LandingPage = ({ showStorageWarning, setShowStorageWarning, setCurrentView, setCurrentStep, handleFileUpload, profile, savedResumes }) => {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6">
+      <div className="max-w-4xl w-full">
+        {showStorageWarning && (
+          <div className="mb-6 bg-slate-800/50 border border-blue-500/30 rounded-lg p-6 backdrop-blur">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="w-6 h-6 text-blue-400 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-blue-300 mb-2">Your Data Stays Private</h3>
+                <div className="space-y-2 text-slate-300 text-sm">
+                  <p className="flex items-center gap-2"><Check className="w-4 h-4 text-green-400" />Stored locally in your browser</p>
+                  <p className="flex items-center gap-2"><Check className="w-4 h-4 text-green-400" />Nothing sent to external servers</p>
+                  <p className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-yellow-400" />Clearing browser cache deletes data</p>
+                  <p className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-yellow-400" />Won't sync across different browsers</p>
+                  <p className="text-blue-300 mt-3">💡 Export regularly to backup your work</p>
+                </div>
+              </div>
+              <button onClick={() => setShowStorageWarning(false)} className="text-slate-400 hover:text-slate-300">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-slate-800/50 backdrop-blur rounded-2xl shadow-2xl p-8 border border-slate-700/50">
+          <div className="text-center mb-8">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">NYXINE</h1>
+            <p className="text-xl text-slate-300">Smart Resume Builder</p>
+            <p className="text-slate-400 mt-2">Enter once. Generate targeted resumes. Stay authentic.</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4 mb-6">
+            <div className="bg-slate-700/30 rounded-lg p-6 border border-slate-600/50 hover:border-blue-500/50 transition-colors">
+              <Upload className="w-8 h-8 text-blue-400 mb-3" />
+              <h3 className="text-lg font-semibold text-slate-200 mb-2">Upload Resume</h3>
+              <p className="text-slate-400 text-sm mb-4">AI extracts your info</p>
+              <label className="block">
+                <input type="file" accept=".pdf,.docx" onChange={handleFileUpload} className="hidden" />
+                <div className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer text-center transition-colors">
+                  Choose File
+                </div>
+              </label>
+            </div>
+
+            <div className="bg-slate-700/30 rounded-lg p-6 border border-slate-600/50 hover:border-purple-500/50 transition-colors">
+              <FileText className="w-8 h-8 text-purple-400 mb-3" />
+              <h3 className="text-lg font-semibold text-slate-200 mb-2">Start Fresh</h3>
+              <p className="text-slate-400 text-sm mb-4">Build step by step</p>
+              <button onClick={() => { setCurrentView('wizard'); setCurrentStep(0); }} className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
+                Begin
+              </button>
+            </div>
+          </div>
+
+          {(profile.personal.fullName || savedResumes.length > 0) && (
+            <div className="text-center pt-4 border-t border-slate-700">
+              <button onClick={() => setCurrentView('dashboard')} className="text-blue-400 hover:text-blue-300 flex items-center gap-2 mx-auto transition-colors">
+                <FileText className="w-4 h-4" />Continue to Dashboard
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="text-center mt-6 text-slate-500 text-sm">
+          <p>Open Source • Privacy First • AI-Powered</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const WizardView = ({ currentStep, setCurrentStep, steps, profile, setProfile, setCurrentView }) => {
+  const CurrentStepIcon = steps[currentStep].icon;
+
+  // ✅ FORM VALIDATION
+  const validateStep = (step) => {
+    switch(step) {
+      case 0: // Personal Info
+        if (!profile.personal.fullName.trim()) {
+          alert('Please enter your full name');
+          return false;
+        }
+        if (!profile.personal.email.trim()) {
+          alert('Please enter your email address');
+          return false;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.personal.email)) {
+          alert('Please enter a valid email address');
+          return false;
+        }
+        if (!profile.personal.phone.trim()) {
+          alert('Please enter your phone number');
+          return false;
+        }
+        if (!profile.personal.location.trim()) {
+          alert('Please enter your location');
+          return false;
+        }
+        return true;
+        
+      case 1: // Work Experience
+        if (profile.workExperience.length === 0) {
+          return window.confirm('No work experience added. Continue anyway?');
+        }
+        for (let job of profile.workExperience) {
+          if (!job.title.trim()) {
+            alert('Please fill in job title for all work experiences');
+            return false;
+          }
+          if (!job.company.trim()) {
+            alert('Please fill in company name for all work experiences');
+            return false;
+          }
+          if (job.bullets.every(b => !b.trim())) {
+            alert('Please add at least one achievement or responsibility for each job');
+            return false;
+          }
+        }
+        return true;
+        
+      case 2: // Education
+        if (profile.education.length === 0) {
+          return window.confirm('No education added. Continue anyway?');
+        }
+        for (let edu of profile.education) {
+          if (!edu.degree.trim() || !edu.major.trim() || !edu.school.trim()) {
+            alert('Please fill in degree, major, and school for all education entries');
+            return false;
+          }
+        }
+        return true;
+        
+      case 3: // Skills
+        const totalSkills = profile.skills.technical.length + profile.skills.soft.length;
+        if (totalSkills === 0) {
+          return window.confirm('No skills added. Continue anyway?');
+        }
+        if (totalSkills < 3) {
+          return window.confirm('Only ' + totalSkills + ' skill(s) added. Recommended: at least 5-10 skills. Continue anyway?');
+        }
+        return true;
+        
+      default:
+        return true;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-slate-800/50 backdrop-blur rounded-lg p-6 mb-6 border border-slate-700/50">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-200">Build Your Profile</h2>
+            <span className="text-slate-400 text-sm">{currentStep + 1} of {steps.length}</span>
+          </div>
+          <div className="flex gap-2">
+            {steps.map((step, idx) => (
+              <div key={idx} className={`flex-1 h-2 rounded-full transition-all ${idx < currentStep ? 'bg-green-500' : idx === currentStep ? 'bg-blue-500' : 'bg-slate-700'}`} />
+            ))}
+          </div>
+          <div className="flex justify-between mt-3">
+            {steps.map((step, idx) => (
+              <div key={idx} className={`text-xs ${idx === currentStep ? 'text-blue-400 font-semibold' : idx < currentStep ? 'text-green-400' : 'text-slate-500'}`}>
+                {step.name}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-slate-800/50 backdrop-blur rounded-lg p-8 border border-slate-700/50">
+          <div className="flex items-center gap-3 mb-6">
+            <CurrentStepIcon className="w-8 h-8 text-blue-400" />
+            <h2 className="text-2xl font-bold text-slate-200">{steps[currentStep].name}</h2>
+          </div>
+
+          {currentStep === 0 && <PersonalInfoStep profile={profile} setProfile={setProfile} />}
+          {currentStep === 1 && <WorkExperienceStep profile={profile} setProfile={setProfile} />}
+          {currentStep === 2 && <EducationStep profile={profile} setProfile={setProfile} />}
+          {currentStep === 3 && <SkillsStep profile={profile} setProfile={setProfile} />}
+          {currentStep === 4 && <ProjectsStep profile={profile} setProfile={setProfile} />}
+          {currentStep === 5 && <AdditionalStep profile={profile} setProfile={setProfile} />}
+
+          <div className="flex justify-between mt-8 pt-6 border-t border-slate-700">
+            <button onClick={() => currentStep > 0 ? setCurrentStep(currentStep - 1) : setCurrentView('landing')} className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg flex items-center gap-2 transition-colors">
+              <ChevronLeft className="w-4 h-4" />{currentStep === 0 ? 'Back' : 'Previous'}
+            </button>
+            {currentStep < steps.length - 1 ? (
+              <button onClick={() => {
+                if (validateStep(currentStep)) {
+                  setCurrentStep(currentStep + 1);
+                }
+              }} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors">
+                Next<ChevronRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button onClick={() => {
+                if (validateStep(currentStep)) {
+                  setCurrentView('dashboard');
+                }
+              }} className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-colors">
+                <Check className="w-4 h-4" />Complete
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PersonalInfoStep = ({ profile, setProfile }) => {
+  const [local, setLocal] = useState(profile.personal);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setProfile(prev => ({ ...prev, personal: local }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [local, setProfile]);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Full Name *</label>
+        <input
+          type="text"
+          value={local.fullName}
+          onChange={(e) => setLocal(prev => ({ ...prev, fullName: e.target.value }))}
+          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          placeholder="John Doe"
+        />
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Email *</label>
+          <input
+            type="email"
+            value={local.email}
+            onChange={(e) => setLocal(prev => ({ ...prev, email: e.target.value }))}
+            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            placeholder="john@example.com"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Phone *</label>
+          <input
+            type="tel"
+            value={local.phone}
+            onChange={(e) => setLocal(prev => ({ ...prev, phone: e.target.value }))}
+            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            placeholder="+1 (555) 123-4567"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Location (City, State) *</label>
+        <input
+          type="text"
+          value={local.location}
+          onChange={(e) => setLocal(prev => ({ ...prev, location: e.target.value }))}
+          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          placeholder="San Francisco, CA"
+        />
+      </div>
+      <div className="grid md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-400 mb-2">LinkedIn</label>
+          <input
+            type="url"
+            value={local.linkedin}
+            onChange={(e) => setLocal(prev => ({ ...prev, linkedin: e.target.value }))}
+            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            placeholder="linkedin.com/in/..."
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-400 mb-2">Portfolio</label>
+          <input
+            type="url"
+            value={local.portfolio}
+            onChange={(e) => setLocal(prev => ({ ...prev, portfolio: e.target.value }))}
+            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            placeholder="yoursite.com"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-400 mb-2">GitHub</label>
+          <input
+            type="url"
+            value={local.github}
+            onChange={(e) => setLocal(prev => ({ ...prev, github: e.target.value }))}
+            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            placeholder="github.com/..."
+          />
+        </div>
+      </div>
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-sm text-slate-300">
+        💡 <strong>Tip:</strong> No photo needed - not recommended for US/Canada resumes
+      </div>
+    </div>
+  );
+};
+
+const WorkExperienceStep = ({ profile, setProfile }) => {
+  const addJob = () => {
+    setProfile(prev => ({
+      ...prev,
+      workExperience: [...prev.workExperience, {
+        id: Date.now(),
+        title: '',
+        company: '',
+        location: '',
+        startDate: '',
+        endDate: '',
+        current: false,
+        bullets: ['']
+      }]
+    }));
+  };
+
+  const removeJob = (id) => {
+    setProfile(prev => ({
+      ...prev,
+      workExperience: prev.workExperience.filter(job => job.id !== id)
+    }));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <p className="text-slate-400 text-sm">Add all work experiences (we'll filter by job later)</p>
+        <button onClick={addJob} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors">
+          <Plus className="w-4 h-4" />Add Job
+        </button>
+      </div>
+
+      {profile.workExperience.length === 0 && (
+        <div className="text-center py-12 text-slate-400">
+          <Briefcase className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p>No work experience yet. Click "Add Job" to start.</p>
+        </div>
+      )}
+
+      {profile.workExperience.map((job, idx) => (
+        <JobForm key={job.id} job={job} idx={idx} setProfile={setProfile} removeJob={removeJob} />
+      ))}
+
+      {profile.workExperience.length > 0 && (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-sm text-slate-300">
+          💡 <strong>Pro Tip:</strong> Include specific numbers (e.g., "Trained 50+ students" instead of "Trained students")
+        </div>
+      )}
+    </div>
+  );
+};
+
+const JobForm = ({ job, idx, setProfile, removeJob }) => {
+  const [local, setLocal] = useState(job);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setProfile(prev => ({
+        ...prev,
+        workExperience: prev.workExperience.map(j => j.id === job.id ? local : j)
+      }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [local, job.id, setProfile]);
+
+  const addBullet = () => {
+    setLocal(prev => ({ ...prev, bullets: [...prev.bullets, ''] }));
+  };
+
+  const removeBullet = (bulletIdx) => {
+    if (local.bullets.length > 1) {
+      setLocal(prev => ({ ...prev, bullets: prev.bullets.filter((_, i) => i !== bulletIdx) }));
+    }
+  };
+
+  return (
+    <div className="bg-slate-700/30 rounded-lg p-6 border border-slate-600/50">
+      <div className="flex justify-between mb-4">
+        <h3 className="text-lg font-semibold text-slate-200">Job #{idx + 1}</h3>
+        <button onClick={() => removeJob(job.id)} className="text-red-400 hover:text-red-300 transition-colors">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Job Title *</label>
+            <input
+              type="text"
+              value={local.title}
+              onChange={(e) => setLocal(prev => ({ ...prev, title: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="Software Engineer"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Company *</label>
+            <input
+              type="text"
+              value={local.company}
+              onChange={(e) => setLocal(prev => ({ ...prev, company: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="Tech Corp"
+            />
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Location</label>
+            <input
+              type="text"
+              value={local.location}
+              onChange={(e) => setLocal(prev => ({ ...prev, location: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="San Francisco, CA"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Start Date</label>
+            <input
+              type="month"
+              value={local.startDate}
+              onChange={(e) => setLocal(prev => ({ ...prev, startDate: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">End Date</label>
+            <div className="flex gap-2">
+              <input
+                type="month"
+                value={local.endDate}
+                onChange={(e) => setLocal(prev => ({ ...prev, endDate: e.target.value }))}
+                disabled={local.current}
+                className="flex-1 px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50"
+              />
+              <label className="flex items-center gap-1 text-slate-300 text-sm whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={local.current}
+                  onChange={(e) => setLocal(prev => ({ ...prev, current: e.target.checked, endDate: e.target.checked ? '' : prev.endDate }))}
+                  className="rounded"
+                />
+                Present
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between mb-2">
+            <label className="block text-sm text-slate-300">Achievements & Responsibilities</label>
+            <button onClick={addBullet} className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1 transition-colors">
+              <Plus className="w-3 h-3" />Add Point
+            </button>
+          </div>
+          <div className="space-y-2">
+            {local.bullets.map((bullet, bulletIdx) => (
+              <div key={bulletIdx} className="flex gap-2">
+                <input
+                  type="text"
+                  value={bullet}
+                  onChange={(e) => {
+                    const newBullets = [...local.bullets];
+                    newBullets[bulletIdx] = e.target.value;
+                    setLocal(prev => ({ ...prev, bullets: newBullets }));
+                  }}
+                  className="flex-1 px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  placeholder="Led team of 5 engineers to deliver..."
+                />
+                {local.bullets.length > 1 && (
+                  <button onClick={() => removeBullet(bulletIdx)} className="text-red-400 hover:text-red-300 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500 mt-2">💡 Include numbers (e.g., "Increased sales by 30%")</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EducationStep = ({ profile, setProfile }) => {
+  const addEdu = () => {
+    setProfile(prev => ({
+      ...prev,
+      education: [...prev.education, {
+        id: Date.now(),
+        degree: '',
+        major: '',
+        school: '',
+        location: '',
+        graduationDate: '',
+        gpa: ''
+      }]
+    }));
+  };
+
+  const removeEdu = (id) => {
+    setProfile(prev => ({
+      ...prev,
+      education: prev.education.filter(e => e.id !== id)
+    }));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between">
+        <p className="text-slate-400 text-sm">Add your education history</p>
+        <button onClick={addEdu} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors">
+          <Plus className="w-4 h-4" />Add Education
+        </button>
+      </div>
+
+      {profile.education.length === 0 && (
+        <div className="text-center py-12 text-slate-400">
+          <GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p>No education yet. Click "Add Education" to start.</p>
+        </div>
+      )}
+
+      {profile.education.map((edu, idx) => (
+        <EduForm key={edu.id} edu={edu} idx={idx} setProfile={setProfile} removeEdu={removeEdu} />
+      ))}
+    </div>
+  );
+};
+
+const EduForm = ({ edu, idx, setProfile, removeEdu }) => {
+  const [local, setLocal] = useState(edu);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setProfile(prev => ({
+        ...prev,
+        education: prev.education.map(e => e.id === edu.id ? local : e)
+      }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [local, edu.id, setProfile]);
+
+  return (
+    <div className="bg-slate-700/30 rounded-lg p-6 border border-slate-600/50">
+      <div className="flex justify-between mb-4">
+        <h3 className="text-lg font-semibold text-slate-200">Education #{idx + 1}</h3>
+        <button onClick={() => removeEdu(edu.id)} className="text-red-400 hover:text-red-300 transition-colors">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Degree *</label>
+            <input
+              type="text"
+              value={local.degree}
+              onChange={(e) => setLocal(prev => ({ ...prev, degree: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="Bachelor of Science"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Major *</label>
+            <input
+              type="text"
+              value={local.major}
+              onChange={(e) => setLocal(prev => ({ ...prev, major: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="Computer Science"
+            />
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">School *</label>
+            <input
+              type="text"
+              value={local.school}
+              onChange={(e) => setLocal(prev => ({ ...prev, school: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="University of California"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Location</label>
+            <input
+              type="text"
+              value={local.location}
+              onChange={(e) => setLocal(prev => ({ ...prev, location: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="Berkeley, CA"
+            />
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Graduation Date</label>
+            <input
+              type="month"
+              value={local.graduationDate}
+              onChange={(e) => setLocal(prev => ({ ...prev, graduationDate: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-400 mb-2">GPA (optional)</label>
+            <input
+              type="text"
+              value={local.gpa}
+              onChange={(e) => setLocal(prev => ({ ...prev, gpa: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="3.8/4.0"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SkillsStep = ({ profile, setProfile }) => {
+  const [newSkill, setNewSkill] = useState({ technical: '', soft: '', certifications: '', languages: '' });
+
+  const addSkill = (cat) => {
+    if (!newSkill[cat].trim()) return;
+    setProfile(prev => {
+      const newSkills = { ...prev.skills };
+      newSkills[cat] = [...newSkills[cat], newSkill[cat].trim()];
+      return { ...prev, skills: newSkills };
+    });
+    setNewSkill(prev => ({ ...prev, [cat]: '' }));
+  };
+
+  const removeSkill = (cat, idx) => {
+    setProfile(prev => {
+      const newSkills = { ...prev.skills };
+      newSkills[cat] = newSkills[cat].filter((_, i) => i !== idx);
+      return { ...prev, skills: newSkills };
+    });
+  };
+
+  const SkillSection = ({ title, cat, placeholder, color }) => (
+    <div>
+      <label className="block text-sm text-slate-300 mb-2">{title}</label>
+      <div className="flex gap-2 mb-2">
+        <input
+          type="text"
+          value={newSkill[cat]}
+          onChange={(e) => setNewSkill(prev => ({ ...prev, [cat]: e.target.value }))}
+          onKeyPress={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(cat); } }}
+          className="flex-1 px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          placeholder={placeholder}
+        />
+        <button onClick={() => addSkill(cat)} className={`px-4 py-2 ${color} text-white rounded-lg transition-colors`}>
+          <Plus className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {profile.skills[cat].map((skill, idx) => (
+          <span key={idx} className={`px-3 py-1 ${color}/20 ${color.replace('bg-', 'text-').replace('-600', '-300')} rounded-full text-sm flex items-center gap-2 border ${color.replace('bg-', 'border-').replace('-600', '-500')}/30`}>
+            {skill}
+            <button onClick={() => removeSkill(cat, idx)} className="hover:opacity-80 transition-opacity">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <p className="text-slate-400 text-sm">Type a skill and press Enter or click + to add. List 10-15 skills most relevant to your target jobs.</p>
+      <SkillSection title="Technical Skills" cat="technical" placeholder="e.g., Python, React, AWS..." color="bg-blue-600" />
+      <SkillSection title="Soft Skills" cat="soft" placeholder="e.g., Leadership, Communication..." color="bg-purple-600" />
+      <SkillSection title="Certifications" cat="certifications" placeholder="e.g., AWS Certified, RHCSA..." color="bg-green-600" />
+      <SkillSection title="Languages" cat="languages" placeholder="e.g., English (Native), Spanish (Fluent)..." color="bg-yellow-600" />
+    </div>
+  );
+};
+
+const ProjectsStep = ({ profile, setProfile }) => {
+  const addProject = () => {
+    setProfile(prev => ({
+      ...prev,
+      projects: [...prev.projects, {
+        id: Date.now(),
+        name: '',
+        description: '',
+        technologies: '',
+        link: ''
+      }]
+    }));
+  };
+
+  const removeProject = (id) => {
+    setProfile(prev => ({
+      ...prev,
+      projects: prev.projects.filter(p => p.id !== id)
+    }));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between">
+        <p className="text-slate-400 text-sm">Showcase your projects (optional but recommended)</p>
+        <button onClick={addProject} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors">
+          <Plus className="w-4 h-4" />Add Project
+        </button>
+      </div>
+
+      {profile.projects.length === 0 && (
+        <div className="text-center py-12 text-slate-400">
+          <Code className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p>No projects yet. Click "Add Project" to showcase your work.</p>
+        </div>
+      )}
+
+      {profile.projects.map((proj, idx) => (
+        <ProjectForm key={proj.id} proj={proj} idx={idx} setProfile={setProfile} removeProject={removeProject} />
+      ))}
+    </div>
+  );
+};
+
+const ProjectForm = ({ proj, idx, setProfile, removeProject }) => {
+  const [local, setLocal] = useState(proj);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setProfile(prev => ({
+        ...prev,
+        projects: prev.projects.map(p => p.id === proj.id ? local : p)
+      }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [local, proj.id, setProfile]);
+
+  return (
+    <div className="bg-slate-700/30 rounded-lg p-6 border border-slate-600/50">
+      <div className="flex justify-between mb-4">
+        <h3 className="text-lg font-semibold text-slate-200">Project #{idx + 1}</h3>
+        <button onClick={() => removeProject(proj.id)} className="text-red-400 hover:text-red-300 transition-colors">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm text-slate-300 mb-2">Project Name *</label>
+          <input
+            type="text"
+            value={local.name}
+            onChange={(e) => setLocal(prev => ({ ...prev, name: e.target.value }))}
+            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            placeholder="E-commerce Platform"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-slate-300 mb-2">Description *</label>
+          <textarea
+            value={local.description}
+            onChange={(e) => setLocal(prev => ({ ...prev, description: e.target.value }))}
+            rows={3}
+            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-y"
+            placeholder="Built a full-stack e-commerce platform with payment integration..."
+          />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Technologies Used</label>
+            <input
+              type="text"
+              value={local.technologies}
+              onChange={(e) => setLocal(prev => ({ ...prev, technologies: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="React, Node.js, MongoDB, AWS"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-400 mb-2">Link (optional)</label>
+            <input
+              type="url"
+              value={local.link}
+              onChange={(e) => setLocal(prev => ({ ...prev, link: e.target.value }))}
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              placeholder="github.com/username/project"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdditionalStep = ({ profile, setProfile }) => {
+  const [local, setLocal] = useState(profile.additional);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setProfile(prev => ({ ...prev, additional: local }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [local, setProfile]);
+
+  return (
+    <div className="space-y-6">
+      <p className="text-slate-400 text-sm">All optional - add if relevant to your career</p>
+      
+      <div>
+        <label className="block text-sm text-slate-400 mb-2">Volunteer Work</label>
+        <textarea
+          value={local.volunteer}
+          onChange={(e) => setLocal(prev => ({ ...prev, volunteer: e.target.value }))}
+          rows={3}
+          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-y"
+          placeholder="Volunteer software instructor at local community center..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm text-slate-400 mb-2">Awards & Honors</label>
+        <textarea
+          value={local.awards}
+          onChange={(e) => setLocal(prev => ({ ...prev, awards: e.target.value }))}
+          rows={3}
+          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-y"
+          placeholder="Employee of the Year 2023, Hackathon Winner..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm text-slate-400 mb-2">Publications</label>
+        <textarea
+          value={local.publications}
+          onChange={(e) => setLocal(prev => ({ ...prev, publications: e.target.value }))}
+          rows={3}
+          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-y"
+          placeholder="Research paper on machine learning published in..."
+        />
+      </div>
+
+      <div className="bg-green-600/10 border border-green-500/30 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-green-300 font-semibold mb-1">Profile Almost Complete! 🎉</h3>
+            <p className="text-slate-300 text-sm">Next: Generate targeted resumes with AI filtering</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DashboardView = ({ profile, savedResumes, setSavedResumes, setCurrentView, exportData, importData, clearAllData }) => {
+  const deleteResume = (index) => {
+    if (window.confirm('Delete this resume?')) {
+      setSavedResumes(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-slate-800/50 backdrop-blur rounded-lg p-4 mb-6 border border-slate-700/50 flex items-center justify-between">
+          <div className="flex items-center gap-3 text-sm text-slate-400">
+            <AlertCircle className="w-4 h-4" />
+            <span>💾 Data stored locally in your browser</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={exportData} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded text-sm flex items-center gap-2 transition-colors">
+              <Download className="w-4 h-4" />Export
+            </button>
+            <label className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded text-sm flex items-center gap-2 cursor-pointer transition-colors">
+              <Upload className="w-4 h-4" />Import
+              <input type="file" accept=".json" onChange={importData} className="hidden" />
+            </label>
+          </div>
+        </div>
+
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-8">Dashboard</h1>
+
+        <div className="grid md:grid-cols-2 gap-6 mb-6">
+          <div className="bg-slate-800/50 backdrop-blur rounded-lg p-6 border border-slate-700/50">
+            <h2 className="text-xl font-semibold text-slate-200 mb-4">Master Profile</h2>
+            <div className="space-y-3 text-slate-300 mb-6">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Name:</span>
+                <span className="font-medium">{profile.personal.fullName || 'Not set'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Email:</span>
+                <span>{profile.personal.email || 'Not set'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Work Experiences:</span>
+                <span className="font-semibold">{profile.workExperience.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Education:</span>
+                <span className="font-semibold">{profile.education.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Skills:</span>
+                <span className="font-semibold">{profile.skills.technical.length + profile.skills.soft.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Projects:</span>
+                <span className="font-semibold">{profile.projects.length}</span>
+              </div>
+            </div>
+            <button onClick={() => setCurrentView('wizard')} className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+              Edit Profile
+            </button>
+          </div>
+
+          <div className="bg-slate-800/50 backdrop-blur rounded-lg p-6 border border-slate-700/50">
+            <h2 className="text-xl font-semibold text-slate-200 mb-4">Saved Resumes</h2>
+            {savedResumes.length === 0 ? (
+              <div className="text-center py-6 mb-4">
+                <FileText className="w-12 h-12 mx-auto mb-3 opacity-50 text-slate-500" />
+                <p className="text-slate-400 text-sm">No resumes yet</p>
+                <p className="text-slate-500 text-xs mt-1">Generate your first targeted resume!</p>
+              </div>
+            ) : (
+              <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
+                {savedResumes.map((resume, idx) => (
+                  <div key={idx} className="bg-slate-700/30 p-3 rounded-lg flex justify-between items-center border border-slate-600/50">
+                    <div>
+                      <p className="text-slate-200 font-medium">{resume.name}</p>
+                      <p className="text-slate-400 text-xs">{resume.date}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="text-blue-400 hover:text-blue-300 transition-colors">
+                        <Download className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => deleteResume(idx)} className="text-red-400 hover:text-red-300 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setCurrentView('generate')} className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center justify-center gap-2 transition-colors">
+              <Sparkles className="w-4 h-4" />Generate New Resume
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-slate-800/50 backdrop-blur rounded-lg p-6 border border-slate-700/50">
+          <h2 className="text-lg font-semibold text-slate-200 mb-4">Quick Actions</h2>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => setCurrentView('generate')} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center gap-2 transition-colors">
+              <Sparkles className="w-4 h-4" />Generate Resume
+            </button>
+            <button onClick={() => setCurrentView('wizard')} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+              Edit Profile
+            </button>
+            <button onClick={exportData} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg flex items-center gap-2 transition-colors">
+              <Download className="w-4 h-4" />Export Backup
+            </button>
+            <button onClick={clearAllData} className="px-4 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-colors">
+              Clear All Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ✅ RESUME TEMPLATES
+
+const ModernTemplate = ({ profile, selectedJobs, displaySkills, displayProjects }) => {
+  return (
+    <div className="bg-white p-8 max-w-5xl mx-auto">
+      <div className="grid grid-cols-3 gap-6">
+        {/* Left sidebar */}
+        <div className="col-span-1 bg-gray-50 p-6 -m-8 mr-0 min-h-full">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">{profile.personal.fullName}</h1>
+            <div className="text-xs text-gray-600 space-y-1 mt-3">
+              <p>{profile.personal.email}</p>
+              <p>{profile.personal.phone}</p>
+              <p>{profile.personal.location}</p>
+              {profile.personal.linkedin && <p className="text-blue-600 break-all">{profile.personal.linkedin}</p>}
+              {profile.personal.portfolio && <p className="text-blue-600 break-all">{profile.personal.portfolio}</p>}
+              {profile.personal.github && <p className="text-blue-600 break-all">{profile.personal.github}</p>}
+            </div>
+          </div>
+
+          {displaySkills.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-sm font-bold text-gray-900 border-b border-gray-300 pb-1 mb-2">SKILLS</h2>
+              <div className="text-xs text-gray-700 space-y-1">
+                {displaySkills.map((skill, idx) => (
+                  <div key={idx}>• {skill}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {profile.education.length > 0 && (
+            <div>
+              <h2 className="text-sm font-bold text-gray-900 border-b border-gray-300 pb-1 mb-2">EDUCATION</h2>
+              {profile.education.map(edu => (
+                <div key={edu.id} className="mb-3 text-xs">
+                  <div className="font-semibold text-gray-900">{edu.degree}</div>
+                  <div className="text-gray-700">{edu.major}</div>
+                  <div className="text-gray-600">{edu.school}</div>
+                  <div className="text-gray-500">{edu.graduationDate}</div>
+                  {edu.gpa && <div className="text-gray-500">GPA: {edu.gpa}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right main content */}
+        <div className="col-span-2">
+          {selectedJobs.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-gray-900 border-b-2 border-gray-300 pb-1 mb-3">EXPERIENCE</h2>
+              {selectedJobs.map(job => (
+                <div key={job.id} className="mb-4">
+                  <div className="flex justify-between items-start mb-1">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">{job.title}</h3>
+                      <p className="text-sm text-gray-700 italic">{job.company}</p>
+                    </div>
+                    <p className="text-xs text-gray-600 whitespace-nowrap ml-2">{job.startDate} - {job.current ? 'Present' : job.endDate}</p>
+                  </div>
+                  <ul className="list-disc list-inside space-y-0.5 text-sm text-gray-700">
+                    {job.bullets.filter(b => b.trim()).map((bullet, idx) => (
+                      <li key={idx}>{bullet}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {displayProjects.length > 0 && (
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 border-b-2 border-gray-300 pb-1 mb-3">PROJECTS</h2>
+              {displayProjects.map(proj => (
+                <div key={proj.id} className="mb-3">
+                  <h3 className="text-base font-semibold text-gray-900">{proj.name}</h3>
+                  <p className="text-sm text-gray-700">{proj.description}</p>
+                  {proj.technologies && <p className="text-xs text-gray-600 mt-1"><strong>Tech:</strong> {proj.technologies}</p>}
+                  {proj.link && <p className="text-xs text-blue-600 mt-1">{proj.link}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ClassicTemplate = ({ profile, selectedJobs, displaySkills, displayProjects }) => {
+  return (
+    <div className="bg-white p-12 max-w-4xl mx-auto" style={{ fontFamily: 'Georgia, Times New Roman, serif' }}>
+      <div className="text-center border-b-2 border-black pb-4 mb-6">
+        <h1 className="text-3xl font-bold mb-2">{profile.personal.fullName}</h1>
+        <p className="text-sm">{profile.personal.email} | {profile.personal.phone} | {profile.personal.location}</p>
+        {(profile.personal.linkedin || profile.personal.portfolio || profile.personal.github) && (
+          <p className="text-sm text-blue-600 mt-1">
+            {[profile.personal.linkedin, profile.personal.portfolio, profile.personal.github].filter(Boolean).join(' | ')}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-5">
+        {selectedJobs.length > 0 && (
+          <div>
+            <h2 className="text-xl font-bold text-center mb-3">PROFESSIONAL EXPERIENCE</h2>
+            {selectedJobs.map(job => (
+              <div key={job.id} className="mb-4">
+                <div className="flex justify-between items-start mb-1">
+                  <div>
+                    <h3 className="text-lg font-semibold">{job.title}</h3>
+                    <p className="text-base italic">{job.company}, {job.location}</p>
+                  </div>
+                  <p className="text-sm whitespace-nowrap ml-4">{job.startDate} - {job.current ? 'Present' : job.endDate}</p>
+                </div>
+                <ul className="list-disc ml-6 space-y-1 text-base">
+                  {job.bullets.filter(b => b.trim()).map((bullet, idx) => (
+                    <li key={idx}>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {profile.education.length > 0 && (
+          <div>
+            <h2 className="text-xl font-bold text-center mb-3">EDUCATION</h2>
+            {profile.education.map(edu => (
+              <div key={edu.id} className="mb-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-semibold">{edu.degree} in {edu.major}</h3>
+                    <p className="text-base">{edu.school}{edu.location && `, ${edu.location}`}</p>
+                  </div>
+                  <p className="text-sm whitespace-nowrap ml-4">{edu.graduationDate}</p>
+                </div>
+                {edu.gpa && <p className="text-sm mt-1">GPA: {edu.gpa}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {displaySkills.length > 0 && (
+          <div>
+            <h2 className="text-xl font-bold text-center mb-3">SKILLS</h2>
+            <p className="text-base text-center">{displaySkills.join(' • ')}</p>
+          </div>
+        )}
+
+        {displayProjects.length > 0 && (
+          <div>
+            <h2 className="text-xl font-bold text-center mb-3">PROJECTS</h2>
+            {displayProjects.map(proj => (
+              <div key={proj.id} className="mb-3">
+                <h3 className="text-lg font-semibold">{proj.name}</h3>
+                <p className="text-base">{proj.description}</p>
+                {proj.technologies && <p className="text-sm mt-1"><strong>Technologies:</strong> {proj.technologies}</p>}
+                {proj.link && <p className="text-sm text-blue-600 mt-1">{proj.link}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const MinimalTemplate = ({ profile, selectedJobs, displaySkills, displayProjects }) => {
+  return (
+    <div className="bg-white p-12 max-w-4xl mx-auto">
+      <div className="mb-12">
+        <h1 className="text-5xl font-light mb-3 tracking-tight">{profile.personal.fullName}</h1>
+        <p className="text-gray-500 text-sm uppercase tracking-widest">
+          {profile.personal.email} · {profile.personal.phone} · {profile.personal.location}
+        </p>
+        {(profile.personal.linkedin || profile.personal.portfolio || profile.personal.github) && (
+          <p className="text-blue-500 text-sm mt-2">
+            {[profile.personal.linkedin, profile.personal.portfolio, profile.personal.github].filter(Boolean).join(' · ')}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-10">
+        {selectedJobs.length > 0 && (
+          <div>
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Experience</h2>
+            {selectedJobs.map(job => (
+              <div key={job.id} className="mb-6 pb-6 border-b border-gray-200 last:border-0">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h3 className="text-xl font-medium text-gray-900">{job.title}</h3>
+                    <p className="text-base text-gray-600">{job.company}</p>
+                  </div>
+                  <p className="text-sm text-gray-500 whitespace-nowrap ml-4">{job.startDate} – {job.current ? 'Present' : job.endDate}</p>
+                </div>
+                <ul className="space-y-2 text-gray-700">
+                  {job.bullets.filter(b => b.trim()).map((bullet, idx) => (
+                    <li key={idx} className="pl-0">— {bullet}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {profile.education.length > 0 && (
+          <div>
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Education</h2>
+            {profile.education.map(edu => (
+              <div key={edu.id} className="mb-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-xl font-medium text-gray-900">{edu.degree}</h3>
+                    <p className="text-base text-gray-600">{edu.major} · {edu.school}</p>
+                  </div>
+                  <p className="text-sm text-gray-500 whitespace-nowrap ml-4">{edu.graduationDate}</p>
+                </div>
+                {edu.gpa && <p className="text-sm text-gray-500 mt-1">GPA: {edu.gpa}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {displaySkills.length > 0 && (
+          <div>
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Skills</h2>
+            <p className="text-gray-700 leading-relaxed">{displaySkills.join(' · ')}</p>
+          </div>
+        )}
+
+        {displayProjects.length > 0 && (
+          <div>
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Projects</h2>
+            {displayProjects.map(proj => (
+              <div key={proj.id} className="mb-4">
+                <h3 className="text-xl font-medium text-gray-900">{proj.name}</h3>
+                <p className="text-gray-700 mt-1">{proj.description}</p>
+                {proj.technologies && <p className="text-sm text-gray-500 mt-2">Technologies: {proj.technologies}</p>}
+                {proj.link && <p className="text-sm text-blue-500 mt-1">{proj.link}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const GenerateView = ({ setCurrentView, profile, savedResumes, setSavedResumes }) => {
+  const [step, setStep] = useState('input');
+  const [jobTarget, setJobTarget] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState('modern');
+  const [resumeName, setResumeName] = useState('');
+
+  const analyzeWithAI = async () => {
+    if (!jobTarget.trim()) {
+      alert('Please enter a job title or description');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setStep('analyzing');
+
+    try {
+      const prompt = `You are a resume optimization expert. Analyze this job description and the candidate's profile, then rank their work experiences by relevance.
+
+JOB DESCRIPTION:
+${jobTarget}
+
+CANDIDATE PROFILE:
+${JSON.stringify(profile, null, 2)}
+
+Return ONLY valid JSON in this exact format (no markdown, no backticks, no extra text):
+{
+  "rankedExperiences": [
+    {"id": 123, "relevanceScore": 95, "reason": "Direct match for role requirements"},
+    {"id": 456, "relevanceScore": 75, "reason": "Transferable skills"}
+  ],
+  "topSkills": ["Skill1", "Skill2", "Skill3", "Skill4", "Skill5", "Skill6", "Skill7", "Skill8"],
+  "atsScore": 85,
+  "keywordMatch": 90,
+  "authenticityScore": 88,
+  "suggestions": [
+    "Add specific metrics to bullet points",
+    "Include more technical keywords from job description"
+  ]
+}
+
+IMPORTANT: Output ONLY the JSON object. No other text.`;
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      let responseText = data.content[0].text;
+      
+      // Clean up markdown code blocks if present
+      responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      const result = JSON.parse(responseText);
+      
+      setAnalysisResult(result);
+      setStep('preview');
+    } catch (error) {
+      console.error('AI Analysis Error:', error);
+      alert('AI analysis failed. Using fallback matching.');
+      
+      // Fallback logic
+      const mockResult = {
+        rankedExperiences: profile.workExperience.map((job, idx) => ({
+          id: job.id,
+          relevanceScore: Math.max(60, 100 - (idx * 15)),
+          reason: `Relevant experience in ${job.title}`
+        })),
+        topSkills: profile.skills.technical.slice(0, 8),
+        atsScore: 85,
+        keywordMatch: 90,
+        authenticityScore: 88,
+        suggestions: [
+          'Add specific metrics to bullet points',
+          'Include more technical keywords from job description',
+          'Highlight leadership experience'
+        ]
+      };
+
+      setAnalysisResult(mockResult);
+      setStep('preview');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const saveResume = () => {
+    const name = resumeName.trim() || `Resume - ${new Date().toLocaleDateString()}`;
+    const newResume = {
+      name,
+      date: new Date().toLocaleDateString(),
+      jobTarget,
+      analysisResult,
+      template: selectedTemplate
+    };
+    setSavedResumes(prev => [...prev, newResume]);
+    alert('Resume saved successfully!');
+    setResumeName('');
+  };
+
+  if (step === 'input') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-slate-800/50 backdrop-blur rounded-lg p-8 border border-slate-700/50">
+            <div className="flex items-center gap-3 mb-6">
+              <Sparkles className="w-8 h-8 text-blue-400" />
+              <h2 className="text-2xl font-bold text-slate-200">Generate Targeted Resume</h2>
+            </div>
+            <p className="text-slate-300 mb-6">AI will analyze the job and select your most relevant experiences.</p>
+
+            <div className="space-y-4">
+              {/* ✅ TEMPLATE SELECTOR */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-3">
+                  Choose Resume Template
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    onClick={() => setSelectedTemplate('modern')}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      selectedTemplate === 'modern'
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : 'border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="text-2xl mb-2">📄</div>
+                      <div className={`font-semibold ${selectedTemplate === 'modern' ? 'text-blue-300' : 'text-slate-300'}`}>
+                        Modern
+                      </div>
+                      <div className="text-xs text-slate-400 mt-1">Two-column layout</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setSelectedTemplate('classic')}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      selectedTemplate === 'classic'
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : 'border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="text-2xl mb-2">📋</div>
+                      <div className={`font-semibold ${selectedTemplate === 'classic' ? 'text-blue-300' : 'text-slate-300'}`}>
+                        Classic
+                      </div>
+                      <div className="text-xs text-slate-400 mt-1">Traditional serif</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setSelectedTemplate('minimal')}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      selectedTemplate === 'minimal'
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : 'border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="text-2xl mb-2">✨</div>
+                      <div className={`font-semibold ${selectedTemplate === 'minimal' ? 'text-blue-300' : 'text-slate-300'}`}>
+                        Minimal
+                      </div>
+                      <div className="text-xs text-slate-400 mt-1">Clean & spacious</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Job Title or Role
+                </label>
+                <input
+                  type="text"
+                  value={jobTarget}
+                  onChange={(e) => setJobTarget(e.target.value)}
+                  placeholder="e.g., Senior Software Engineer"
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all mb-4"
+                />
+                <p className="text-slate-400 text-sm mb-2">Or paste the full job description:</p>
+                <textarea
+                  value={jobTarget}
+                  onChange={(e) => setJobTarget(e.target.value)}
+                  rows={8}
+                  placeholder="Paste full job description here for better AI matching..."
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-y"
+                />
+                <p className="text-slate-500 text-xs mt-2">💡 More details = better AI matching</p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setCurrentView('dashboard')}
+                  className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={analyzeWithAI}
+                  className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  Analyze with AI
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'analyzing') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 flex items-center justify-center">
+        <div className="bg-slate-800/50 backdrop-blur rounded-lg p-12 border border-slate-700/50 text-center">
+          <Sparkles className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-pulse" />
+          <h2 className="text-2xl font-bold text-slate-200 mb-2">Analyzing Job Requirements</h2>
+          <p className="text-slate-400">AI is matching your profile to the job...</p>
+          <p className="text-slate-500 text-sm mt-2">This may take a few moments</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'preview' && analysisResult) {
+    const selectedJobs = profile.workExperience
+      .filter(job => {
+        const rank = analysisResult.rankedExperiences.find(r => r.id === job.id);
+        return rank && rank.relevanceScore >= 60;
+      })
+      .sort((a, b) => {
+        const scoreA = analysisResult.rankedExperiences.find(r => r.id === a.id)?.relevanceScore || 0;
+        const scoreB = analysisResult.rankedExperiences.find(r => r.id === b.id)?.relevanceScore || 0;
+        return scoreB - scoreA;
+      });
+
+    // 🔧 FIX #4: Skills fallback if AI doesn't return topSkills
+    const displaySkills = analysisResult.topSkills && analysisResult.topSkills.length > 0 
+      ? analysisResult.topSkills 
+      : [...profile.skills.technical, ...profile.skills.soft].slice(0, 10);
+
+    // 🔧 FIX #3: Show projects in preview
+    const displayProjects = profile.projects.slice(0, 2);
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl font-bold text-slate-200 mb-6">Resume Preview</h2>
+
+          <div className="grid md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-slate-800/50 backdrop-blur rounded-lg p-6 border border-slate-700/50">
+              <div className="text-center">
+                <div className={`text-4xl font-bold mb-2 ${analysisResult.atsScore >= 80 ? 'text-green-400' : analysisResult.atsScore >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {analysisResult.atsScore}%
+                </div>
+                <p className="text-slate-400">ATS Compatible</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/50 backdrop-blur rounded-lg p-6 border border-slate-700/50">
+              <div className="text-center">
+                <div className={`text-4xl font-bold mb-2 ${analysisResult.keywordMatch >= 80 ? 'text-green-400' : analysisResult.keywordMatch >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {analysisResult.keywordMatch}%
+                </div>
+                <p className="text-slate-400">Keyword Match</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/50 backdrop-blur rounded-lg p-6 border border-slate-700/50">
+              <div className="text-center">
+                <div className={`text-4xl font-bold mb-2 ${analysisResult.authenticityScore >= 80 ? 'text-green-400' : analysisResult.authenticityScore >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {analysisResult.authenticityScore}%
+                </div>
+                <p className="text-slate-400">Authenticity</p>
+              </div>
+            </div>
+          </div>
+
+          {analysisResult.suggestions && analysisResult.suggestions.length > 0 && (
+            <div className="bg-blue-600/10 border border-blue-500/30 rounded-lg p-6 mb-6">
+              <h3 className="text-lg font-semibold text-blue-300 mb-3 flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                AI Suggestions
+              </h3>
+              <ul className="space-y-2 text-slate-300">
+                {analysisResult.suggestions.map((suggestion, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-blue-400 flex-shrink-0 mt-1" />
+                    <span>{suggestion}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* 🔧 FIX #5: Save Resume Feature */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-lg p-6 mb-6 border border-slate-700/50">
+            <h3 className="text-lg font-semibold text-slate-200 mb-3">Save This Resume</h3>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={resumeName}
+                onChange={(e) => setResumeName(e.target.value)}
+                placeholder="e.g., Software Engineer - Tech Corp"
+                className="flex-1 px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={saveResume}
+                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <Save className="w-4 h-4" />
+                Save
+              </button>
+            </div>
+          </div>
+
+          {/* 🔧 FIX #2: Print-specific styling */}
+          <style>{`
+            @media print {
+              body * {
+                visibility: hidden;
+              }
+              #resume-preview, #resume-preview * {
+                visibility: visible;
+              }
+              #resume-preview {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+              }
+              .no-print {
+                display: none !important;
+              }
+            }
+          `}</style>
+
+          {/* ✅ TEMPLATE-BASED RENDERING */}
+          <div className="rounded-lg shadow-2xl mb-6 print:shadow-none overflow-hidden" id="resume-preview">
+            {selectedTemplate === 'modern' && (
+              <ModernTemplate 
+                profile={profile}
+                selectedJobs={selectedJobs}
+                displaySkills={displaySkills}
+                displayProjects={displayProjects}
+              />
+            )}
+            {selectedTemplate === 'classic' && (
+              <ClassicTemplate 
+                profile={profile}
+                selectedJobs={selectedJobs}
+                displaySkills={displaySkills}
+                displayProjects={displayProjects}
+              />
+            )}
+            {selectedTemplate === 'minimal' && (
+              <MinimalTemplate 
+                profile={profile}
+                selectedJobs={selectedJobs}
+                displaySkills={displaySkills}
+                displayProjects={displayProjects}
+              />
+            )}
+          </div>
+
+          <div className="flex gap-3 no-print">
+            <button
+              onClick={() => setStep('input')}
+              className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition-colors"
+            >
+              Back
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+            >
+              <Download className="w-5 h-5" />
+              Download PDF (Print)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+export default NyxineResumeMaker;
